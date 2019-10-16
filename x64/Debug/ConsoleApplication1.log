@@ -1,0 +1,5 @@
+﻿  CIOCPServer.cpp
+C:\Users\purel\source\repos\ConsoleApplication1\ConsoleApplication1\CIOCPServer.cpp(38,20): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+C:\Users\purel\source\repos\ConsoleApplication1\ConsoleApplication1\CIOCPServer.cpp(81,88): warning C4311: '형식 캐스트': 'LPPER_HANDLE_DATA'에서 'DWORD'(으)로 포인터가 잘립니다.
+C:\Users\purel\source\repos\ConsoleApplication1\ConsoleApplication1\CIOCPServer.cpp(81,88): warning C4302: '형식 캐스트': 'LPPER_HANDLE_DATA'에서 'DWORD'(으)로 잘립니다.
+  ConsoleApplication1.vcxproj -> C:\Users\purel\source\repos\ConsoleApplication1\x64\Debug\ConsoleApplication1.exe
