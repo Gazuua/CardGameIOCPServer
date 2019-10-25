@@ -157,9 +157,15 @@
   <ItemGroup>
     <ClCompile Include="CIOCPServer.cpp" />
     <ClCompile Include="ConsoleApplication1.cpp" />
+    <ClCompile Include="CPacket.cpp" />
+    <ClCompile Include="CPacketQueue.cpp" />
+    <ClCompile Include="CUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CIOCPServer.h" />
+    <ClInclude Include="CPacket.h" />
+    <ClInclude Include="CPacketQueue.h" />
+    <ClInclude Include="CUtil.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

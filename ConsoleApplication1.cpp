@@ -1,8 +1,10 @@
 ﻿#include<iostream>
 #include<string>
-#include<vector>
+#include<queue>
 
 #include"CIOCPServer.h"
+#include"CPacket.h"
+#include"CUtil.h"
 using namespace std;
 
 // 싱글톤 객체를 main 함수에서 불러다 쓸 수 있도록 하는 조치
