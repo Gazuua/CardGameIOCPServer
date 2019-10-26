@@ -146,47 +146,51 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 				// 즉시 처리 가능한 내부 작업은 곧바로 처리해 준다.
 				for (int i = 0; i < recv; i++)
 				{
-					CPacket* packet = handleInfo->packetQueue->getPacket();
+					// 1. CPacket -> 동적 할당 및 깊은 복사이지만, 지역변수로 선언 시
+					// 해당 블록을 빠져나갈 때 자동으로 클래스와 내부 할당된 메모리가 소멸된다.
+					CPacket packet = *(handleInfo->packetQueue->getPacket());
+					unsigned short type = packet.GetPacketType();
+					unsigned short size = packet.GetDataSize();
+					char* charContent = packet.GetContent();
 
-					// printf("수신된 패킷 타입 : %hu\n", packet->GetPacketType());
-					// printf("데이터 크기 : %d\n", packet->GetDataSize());
-					// printf("수신된 메세지 :: %s\n", packet->GetContent());
-
-					// 보내기용 패킷을 선언해둔다
-
-					switch (packet->GetPacketType())
+					switch (packet.GetPacketType())
 					{
+						// STANDARD 패킷은 기본적인 Echo전용 패킷이다.
+						// 받은 데이터를 출력하고 다시 클라이언트에 돌려준다.
 					case PACKET_TYPE_STANDARD:
 					{
-						CStandardPacketContent content(packet->GetContent());
-						// 뭔가 작업을 직접 하거나 요청하고
+						// 작업 내용 : Echo 출력
+						CStandardPacketContent content(charContent, size); // 깊은 복사
+						cout << "STANDARD 패킷 내용 :: " << content.GetCommand() << endl;
+						
+						// 맨 위에 있는 packet과 같이 case 블록 탈출 시 자동소멸된다.
+						CPacket sendPacket(charContent, type, size);
+						// 2. LPPER_IO_PACKET -> Encode() 함수로 동적 할당 및 깊은 복사가 되며
+						// 구조체이기 때문에 소멸하기 전 반드시 free()를 해줘야 한다.
+						LPPER_IO_PACKET sendData = sendPacket.Encode();
+						// 3. LPPER_IO_DATA -> multiSendCount가 0이 될 때 불특정 스레드에서 소멸된다.
+						LPPER_IO_DATA sendIoInfo;
+						GetInstance()->initWSASend(&sendIoInfo, sendData->data, sendData->size);
+						WSASend(socket, &(sendIoInfo->wsaBuf), 1, NULL, 0, &(sendIoInfo->overlapped), NULL);
+						free(sendData->data);
+						free(sendData);
 						break;
 					}
-					default:
-						break;
 					}
-
-					// 보내기용 패킷을 셋팅 및 보낸다.
 				}
 
 				// 그리고 다음 패킷 수신을 기다린다.
 				LPPER_IO_DATA newIoInfo;
 				GetInstance()->initWSARecv(&newIoInfo);
 				WSARecv(socket, &(newIoInfo->wsaBuf), 1, NULL, &flags, &(newIoInfo->overlapped), NULL);
-
-				// 아래 코드는 에코 송수신
-				/*
-				GetInstance()->initWSASend(&ioInfo, ioInfo->buffer, transferredBytes);
-				WSASend(socket, &(ioInfo->wsaBuf), 1, NULL, 0, &(ioInfo->overlapped), NULL);
-
-				GetInstance()->initWSARecv(&ioInfo);
-				WSARecv(socket, &(ioInfo->wsaBuf), 1, NULL, &flags, &(ioInfo->overlapped), NULL);
-				*/
 			}
 			// 쓰기 완료 시
 			else
 			{
-				// 당장은 사용되지 않는 분기점
+				// CRITICAL_SECTION (다중 송신의 경우 스레드 세이프하지 않음)
+				if (--(ioInfo->multiSendCount) == 0)
+					free(ioInfo);
+				// CRITICAL_SECTION (다중 송신의 경우 스레드 세이프하지 않음)
 			}
 		}
 		// 리턴값이 0인 경우 (뭔가 에러처리를 해야 하는 결과를 통지받은 경우)
@@ -220,12 +224,26 @@ void CIOCPServer::initWSARecv(LPPER_IO_DATA *ioInfo)
 
 void CIOCPServer::initWSASend(LPPER_IO_DATA * ioInfo, const char* message, int msgLength)
 {
+	*ioInfo = (LPPER_IO_DATA)malloc(sizeof(PER_IO_DATA));
 	memset(&((*ioInfo)->overlapped), 0, sizeof(OVERLAPPED));
 	memset(&(*ioInfo)->buffer, 0, sizeof((*ioInfo)->buffer));
 	memcpy((*ioInfo)->buffer, message, msgLength);
 	(*ioInfo)->wsaBuf.len = msgLength;
 	(*ioInfo)->wsaBuf.buf = (*ioInfo)->buffer;
 	(*ioInfo)->readWriteFlag = WRITE;
+	(*ioInfo)->multiSendCount = 1;
+}
+
+void CIOCPServer::initWSASend(LPPER_IO_DATA* ioInfo, const char* message, int msgLength, int multiSendCount)
+{
+	*ioInfo = (LPPER_IO_DATA)malloc(sizeof(PER_IO_DATA));
+	memset(&((*ioInfo)->overlapped), 0, sizeof(OVERLAPPED));
+	memset(&(*ioInfo)->buffer, 0, sizeof((*ioInfo)->buffer));
+	memcpy((*ioInfo)->buffer, message, msgLength);
+	(*ioInfo)->wsaBuf.len = msgLength;
+	(*ioInfo)->wsaBuf.buf = (*ioInfo)->buffer;
+	(*ioInfo)->readWriteFlag = WRITE;
+	(*ioInfo)->multiSendCount = multiSendCount;
 }
 
 void CIOCPServer::closeClient(LPPER_HANDLE_DATA* handleInfo, LPPER_IO_DATA* ioInfo)

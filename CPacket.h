@@ -8,14 +8,16 @@ using namespace std;
 
 #pragma warning(disable:4996)
 
-#define PACKET_TYPE_STANDARD 0
+#define PACKET_TYPE_STANDARD 0		// STANDARD :: 에코 송수신용 패킷 타입
 
 // CPacket :: 패킷을 클래스화시킨 클래스이다.
 class CPacket
 {
 public:
-	// 즉, 클라이언트로부터 받은 데이터를 단순히 클래스화하는 경우에 사용된다.
+	// WSARecv 디코딩 시 헤더와 끝 문자열이 붙어있는 data를 인자로 받는다.
 	CPacket(char* data);
+	// WSASend 인코딩 시 순수한 데이터와 그 크기 및 보내는 용도(type)를 인자로 받는다.
+	CPacket(char* data, unsigned short type, unsigned short size);
 	~CPacket();
 
 	// 클래스화된 패킷을 통신 가능하도록 char 포인터로 인코딩하는 함수
@@ -34,7 +36,7 @@ private:
 class CStandardPacketContent
 {
 public:
-	CStandardPacketContent(char* data);
+	CStandardPacketContent(char* data, unsigned short size);
 	~CStandardPacketContent() {};
 
 	string GetCommand();

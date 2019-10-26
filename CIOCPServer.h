@@ -71,5 +71,6 @@ private:
 
 	void initWSARecv(LPPER_IO_DATA * ioInfo);
 	void initWSASend(LPPER_IO_DATA * ioInfo, const char * message, int msgLength);
+	void initWSASend(LPPER_IO_DATA * ioInfo, const char * message, int msgLength, int multiSendCount);
 	void closeClient(LPPER_HANDLE_DATA * handleInfo, LPPER_IO_DATA * ioInfo);
 };

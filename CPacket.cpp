@@ -13,6 +13,14 @@ CPacket::CPacket(char* data)
 	memcpy(this->m_Content, ptPacketContent, size);
 }
 
+CPacket::CPacket(char* data, unsigned short type, unsigned short size)
+{
+	this->m_PacketType = type;
+	this->m_DataSize = size;
+	this->m_Content = (char*)malloc(size);
+	memcpy(this->m_Content, data, size);
+}
+
 CPacket::~CPacket()
 {
 	free(this->m_Content);
@@ -65,9 +73,11 @@ char* CPacket::GetContent()
 	return this->m_Content;
 }
 
-CStandardPacketContent::CStandardPacketContent(char* data)
+CStandardPacketContent::CStandardPacketContent(char* data, unsigned short size)
 {
-	this->SetCommand(data);
+	this->m_Command.assign(size, 0);
+	for (int i = 0; i < size; i++)
+		this->m_Command[i] = data[i];
 }
 
 string CStandardPacketContent::GetCommand()

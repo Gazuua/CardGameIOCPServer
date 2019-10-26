@@ -8,5 +8,5 @@ void CUtil::shortToCharArray(char* dst, unsigned short n)
 
 unsigned short CUtil::charArrayToShort(char* arr)
 {
-	return (short)(((arr[0] & 0xFF) << 8) + (arr[1] & 0xFF));
+	return (unsigned short)(((arr[0] & 0xFF) << 8) + (arr[1] & 0xFF));
 }
