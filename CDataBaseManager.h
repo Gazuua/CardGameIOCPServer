@@ -19,6 +19,7 @@ public:
 	void DBDisconnect();
 
 	bool LoginRequest(string id, string pw);
+	bool RegisterRequest(string id, string pw);
 
 	void Release();
 

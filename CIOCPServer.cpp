@@ -185,7 +185,6 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 						string info(charContent, size);
 						string id(info.substr(0, info.find('/')));
 						string pw(info.substr(info.find('/') + 1));
-						cout << "로그인 요청 :: " << id << "/" << pw << endl;
 
 						// DB 모듈에 선언된 전용 함수를 통해 요청한다.
 						if(id.length() >= 4 && pw.length() >= 4)
@@ -203,6 +202,45 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 
 						// LOGIN_RES 타입의 패킷이 로그인 요청에 대한 응답 패킷이다.
 						CPacket sendPacket(result, PACKET_TYPE_LOGIN_RES, resultSize);
+						LPPER_IO_PACKET sendData = sendPacket.Encode();
+						LPPER_IO_DATA sendIoInfo;
+						GetInstance()->initWSASend(&sendIoInfo, sendData->data, sendData->size);
+						WSASend(socket, &(sendIoInfo->wsaBuf), 1, NULL, 0, &(sendIoInfo->overlapped), NULL);
+						free(sendData->data);
+						free(sendData);
+					}
+					break;
+
+					// 클라이언트로부터 회원가입 요청이 올 경우
+					case PACKET_TYPE_REGISTER_REQ:
+					{
+						// 변수를 선언하고
+						bool bSuccess = false;
+						char result[7];
+						short resultSize = 0;
+
+						// 아이디와 비밀번호를 분리한다.
+						string info(charContent, size);
+						string id(info.substr(0, info.find('/')));
+						string pw(info.substr(info.find('/') + 1));
+						cout << "회원가입 요청 :: " << id << "/" << pw << endl;
+
+						// DB 모듈에 선언된 전용 함수를 통해 요청한다.
+						if (id.length() >= 4 && pw.length() >= 4)
+							bSuccess = CDataBaseManager::GetInstance()->RegisterRequest(id, pw);
+						// 대기 후 결과를 받아 그대로 클라이언트에 전송한다.
+						// 성공시 success 실패시 failed
+						if (bSuccess) {
+							resultSize = 7;
+							memcpy(result, "success", resultSize);
+						}
+						else {
+							resultSize = 6;
+							memcpy(result, "failed", resultSize);
+						}
+
+						// REGISTER_RES 타입의 패킷이 로그인 요청에 대한 응답 패킷이다.
+						CPacket sendPacket(result, PACKET_TYPE_REGISTER_RES, resultSize);
 						LPPER_IO_PACKET sendData = sendPacket.Encode();
 						LPPER_IO_DATA sendIoInfo;
 						GetInstance()->initWSASend(&sendIoInfo, sendData->data, sendData->size);

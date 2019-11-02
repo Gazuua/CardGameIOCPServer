@@ -73,11 +73,41 @@ bool CDataBaseManager::LoginRequest(string id, string pw)
 
 	strcpy((char*)query, stringQuery.c_str());
 	SQLExecDirect(hStmt, query, SQL_NTS);
+	
+	// 아래 코드는 SELECT로 찾은 데이터를 한 행씩 순회하는 코드이다.
+	// 찾은 결과가 한 행 이상 있다면 정상 로그인이 가능한 것이다.
 	while (SQLFetch(hStmt) != SQL_NO_DATA)
 		ret = true;
 
 	SQLCloseCursor(hStmt);
 	SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
 		
+	return ret;
+}
+
+bool CDataBaseManager::RegisterRequest(string id, string pw)
+{
+	SQLCHAR query[256];
+	SQLHSTMT hStmt;
+	SQLINTEGER row = 0;
+	bool ret = false;
+
+	if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS)
+		return ret;
+
+	string stringQuery = "INSERT INTO CLIENT VALUES('" + id + "', '" + pw + "', 0, 0, 10000)";
+	// cout << "쿼리 실행 :: " << stringQuery << endl;
+
+	strcpy((char*)query, stringQuery.c_str());
+	SQLExecDirect(hStmt, query, SQL_NTS);
+	
+	// 아래 코드는 SQL문 실행으로 영향을 받은 행의 갯수를 반환한다.
+	// 1개 행이 삽입되었다면 정상적으로 회원가입이 된 것이다.
+	SQLRowCount(hStmt, &row);
+	if (row == 1) ret = true;
+
+	SQLCloseCursor(hStmt);
+	SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
 	return ret;
 }

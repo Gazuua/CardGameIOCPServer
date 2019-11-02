@@ -10,7 +10,9 @@ using namespace std;
 
 #define PACKET_TYPE_STANDARD 0		// STANDARD :: 에코 송수신용 패킷 타입
 #define PACKET_TYPE_LOGIN_REQ 1		// LOGIN_REQ :: 클라이언트에서 로그인 요청
-#define PACKET_TYPE_LOGIN_RES 2		// LOGIN_RES :: 클라이언트에 로그인 요청 응답
+#define PACKET_TYPE_LOGIN_RES 2		// LOGIN_RES :: 클라이언트의 로그인 요청 응답
+#define PACKET_TYPE_REGISTER_REQ 3	// REGISTER_REQ :: 클라이언트에서 회원가입 요청
+#define PACKET_TYPE_REGISTER_RES 4	// REGISTER_REQ :: 클라이언트의 회원가입 요청 응답
 
 // CPacket :: 패킷을 클래스화시킨 클래스이다.
 class CPacket
