@@ -72,20 +72,3 @@ char* CPacket::GetContent()
 {
 	return this->m_Content;
 }
-
-CStandardPacketContent::CStandardPacketContent(char* data, unsigned short size)
-{
-	this->m_Command.assign(size, 0);
-	for (int i = 0; i < size; i++)
-		this->m_Command[i] = data[i];
-}
-
-string CStandardPacketContent::GetCommand()
-{
-	return this->m_Command;
-}
-
-void CStandardPacketContent::SetCommand(string command)
-{
-	this->m_Command = command;
-}

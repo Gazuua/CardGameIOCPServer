@@ -3,15 +3,22 @@
 #include<queue>
 
 #include"CIOCPServer.h"
+#include"CDataBaseManager.h"
 #include"CPacket.h"
 #include"CUtil.h"
 using namespace std;
 
-// 싱글톤 객체를 main 함수에서 불러다 쓸 수 있도록 하는 조치
+#pragma warning(disable:4996)
+
+// 싱글톤 인스턴스를 main 함수에서 불러다 쓸 수 있도록 하는 조치
 CIOCPServer* CIOCPServer::m_pInstance = nullptr;
+CDataBaseManager* CDataBaseManager::m_pInstance = nullptr;
 
 int main(int argc, char* argv[])
 {
+	if (!CDataBaseManager::GetInstance()->DBConnect())
+		return -1;
+
 	if (!CIOCPServer::GetInstance()->Init(55248))
 		return -1;
 	
@@ -28,4 +35,5 @@ int main(int argc, char* argv[])
 	}
 	
 	CIOCPServer::GetInstance()->Release();
+	CDataBaseManager::GetInstance()->Release();
 }

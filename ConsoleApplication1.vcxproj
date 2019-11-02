@@ -30,14 +30,14 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -155,6 +155,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CDataBaseManager.cpp" />
     <ClCompile Include="CIOCPServer.cpp" />
     <ClCompile Include="ConsoleApplication1.cpp" />
     <ClCompile Include="CPacket.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="CUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CDataBaseManager.h" />
     <ClInclude Include="CIOCPServer.h" />
     <ClInclude Include="CPacket.h" />
     <ClInclude Include="CPacketQueue.h" />

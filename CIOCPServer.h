@@ -7,6 +7,7 @@
 #include<WinSock2.h>
 #include<Windows.h>
 
+#include"CDataBaseManager.h"
 #include"CPacketQueue.h"
 #include"CPacket.h"
 #include"CUtil.h"
@@ -30,8 +31,8 @@ typedef struct
 // GQCS에서 활용할 메세지 정보(1입출력당 1할당)
 typedef struct
 {
-	OVERLAPPED		overlapped;					// OVERLAPPED IO 이용에 쓰이는 변수
-	WSABUF			wsaBuf;						// OVERLAPPED IO 이용에 쓰이는 버퍼 설정용 변수
+	OVERLAPPED		overlapped;					// OVERLAPPED IO 이용에 쓰이는 구조체
+	WSABUF			wsaBuf;						// OVERLAPPED IO 이용에 쓰이는 버퍼 설정용 구조체
 	char			buffer[MAX_BUFFER_SIZE];	// OVERLAPPED IO에 사용되는 다이렉트 버퍼
 	int				readWriteFlag;				// 현재 IO 작업이 무엇인지 표현하는 변수
 	int				multiSendCount;				// 다수의 사용자에게 WSASend시 활용되는 카운트

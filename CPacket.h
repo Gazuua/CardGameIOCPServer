@@ -9,6 +9,8 @@ using namespace std;
 #pragma warning(disable:4996)
 
 #define PACKET_TYPE_STANDARD 0		// STANDARD :: 에코 송수신용 패킷 타입
+#define PACKET_TYPE_LOGIN_REQ 1		// LOGIN_REQ :: 클라이언트에서 로그인 요청
+#define PACKET_TYPE_LOGIN_RES 2		// LOGIN_RES :: 클라이언트에 로그인 요청 응답
 
 // CPacket :: 패킷을 클래스화시킨 클래스이다.
 class CPacket
@@ -31,16 +33,4 @@ private:
 	unsigned short	m_PacketType;
 	unsigned short	m_DataSize;
 	char *			m_Content;
-};
-
-class CStandardPacketContent
-{
-public:
-	CStandardPacketContent(char* data, unsigned short size);
-	~CStandardPacketContent() {};
-
-	string GetCommand();
-	void SetCommand(string command);
-private:
-	string m_Command;
 };

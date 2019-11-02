@@ -59,7 +59,7 @@ bool CIOCPServer::Init(const int PORT)
 	for (int i = 0; i < 4; i++)
 		ipAddr[i] = *(host->h_addr_list[0]+i);
 
-	puts("=============서버 초기 설정 완료!=============\n");
+	puts("============= IOCP 서버 초기 설정 완료!=============");
 	printf("서버 주소 -> %d.%d.%d.%d/%d\n", ipAddr[0], ipAddr[1], ipAddr[2], ipAddr[3], PORT);
 
 	return true;
@@ -106,12 +106,6 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 	LPPER_IO_DATA		ioInfo;
 	DWORD				flags = 0;
 
-	// 해결해야 할 사항
-	// 1. 한 패킷이 여러 개로 잘려서 올 때도 있다. (네트워크 환경 불안정 or MSS를 초과하는 패킷)
-	// 2. 여러 개의 패킷이 뭉쳐서 하나로 올 때도 있다. (클라이언트에서 쉼없이 전송하면 가능...)
-	// >> handleInfo에 packetQueue를 추가하여, 특정 문자열을 기준으로 패킷을 결합 및 재구성
-	// >> 패킷 송수신 구조 및 프로토콜 설계
-
 	while (1)
 	{
 		gqcsRet = GetQueuedCompletionStatus(hCP, &transferredBytes, (LPDWORD)&handleInfo, (LPOVERLAPPED*)&ioInfo, INFINITE);		
@@ -136,7 +130,10 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 				int recv = handleInfo->packetQueue->OnRecv(ioInfo->buffer, transferredBytes);
 
 				// OnRecv()에서 -1을 반환하면 뭔가 잘못되었으니 클라이언트의 연결을 해제하면 된다.
-				if (recv == -1)	CIOCPServer::GetInstance()->closeClient(&handleInfo, &ioInfo);
+				if (recv == -1) {
+					CIOCPServer::GetInstance()->closeClient(&handleInfo, &ioInfo);
+					continue;
+				}
 
 				// 이번 WSARecv에 쓰인 ioInfo는 더 이상 필요하지 않으니 해제한다.
 				free(ioInfo);
@@ -156,12 +153,11 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 					switch (packet.GetPacketType())
 					{
 						// STANDARD 패킷은 기본적인 Echo전용 패킷이다.
-						// 받은 데이터를 출력하고 다시 클라이언트에 돌려준다.
 					case PACKET_TYPE_STANDARD:
 					{
-						// 작업 내용 : Echo 출력
-						CStandardPacketContent content(charContent, size); // 깊은 복사
-						cout << "STANDARD 패킷 내용 :: " << content.GetCommand() << endl;
+						// STANDARD 패킷 내용물 까기
+						string command(charContent, size);
+						cout << "STANDARD 패킷 내용 :: " << command << endl;
 						
 						// 맨 위에 있는 packet과 같이 case 블록 탈출 시 자동소멸된다.
 						CPacket sendPacket(charContent, type, size);
@@ -174,8 +170,50 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 						WSASend(socket, &(sendIoInfo->wsaBuf), 1, NULL, 0, &(sendIoInfo->overlapped), NULL);
 						free(sendData->data);
 						free(sendData);
-						break;
 					}
+					break;
+
+					// 클라이언트로부터 로그인 요청이 올 경우
+					case PACKET_TYPE_LOGIN_REQ:
+					{
+						// 변수를 선언하고
+						bool bSuccess = false;
+						char result[7];
+						short resultSize = 0;
+
+						// 아이디와 비밀번호를 분리한다.
+						string info(charContent, size);
+						string id(info.substr(0, info.find('/')));
+						string pw(info.substr(info.find('/') + 1));
+						cout << "로그인 요청 :: " << id << "/" << pw << endl;
+
+						// DB 모듈에 선언된 전용 함수를 통해 요청한다.
+						if(id.length() >= 4 && pw.length() >= 4)
+							bSuccess = CDataBaseManager::GetInstance()->LoginRequest(id, pw);
+						// 대기 후 결과를 받아 그대로 클라이언트에 전송한다.
+						// 성공시 success 실패시 failed
+						if (bSuccess) {
+							resultSize = 7;
+							memcpy(result, "success", resultSize);
+						}
+						else {
+							resultSize = 6;
+							memcpy(result, "failed", resultSize);
+						}
+
+						// LOGIN_RES 타입의 패킷이 로그인 요청에 대한 응답 패킷이다.
+						CPacket sendPacket(result, PACKET_TYPE_LOGIN_RES, resultSize);
+						LPPER_IO_PACKET sendData = sendPacket.Encode();
+						LPPER_IO_DATA sendIoInfo;
+						GetInstance()->initWSASend(&sendIoInfo, sendData->data, sendData->size);
+						WSASend(socket, &(sendIoInfo->wsaBuf), 1, NULL, 0, &(sendIoInfo->overlapped), NULL);
+						free(sendData->data);
+						free(sendData);
+					}
+					break;
+					
+					default:
+						break;
 					}
 				}
 
