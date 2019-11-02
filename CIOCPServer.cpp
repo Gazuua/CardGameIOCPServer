@@ -215,7 +215,7 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 					case PACKET_TYPE_REGISTER_REQ:
 					{
 						// 변수를 선언하고
-						bool bSuccess = false;
+						bool bSuccess = false; 
 						char result[7];
 						short resultSize = 0;
 
