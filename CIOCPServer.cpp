@@ -255,7 +255,7 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 					{
 						// 1. 결과와 그 값을 저장할 변수를 선언한다.
 						bool bSuccess = false;
-						char result[10000];
+						char result[2000] = "";
 						int resultSize = 0;
 						CClient* client = GetInstance()->m_ClientList[socket];
 
@@ -441,9 +441,111 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 						// 8. 마지막 구분자를 제거하기 위해 resultSize를 1 줄여준다.
 						resultSize--;
 
-						GetInstance()->sendRequest(socket, result, PACKET_TYPE_ROOM_USER_RES, resultSize);
+						// 9. 방 안에 있는 모든 클라이언트에 정보를 전송한다.
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							GetInstance()->sendRequest((*iter)->getSocket(), result,
+								PACKET_TYPE_ROOM_USER_RES, resultSize);
+						}
 					}
 					break;
+
+					// EXIT_ROOM_REQ 패킷은 클라이언트가 방에서 나갈 때 서버에 통지하는 패킷이다.
+					case PACKET_TYPE_EXIT_ROOM_REQ:
+					{
+						// 1. 해당 클라이언트가 퇴장한 방 번호를 받아 저장한다. 
+						int number = atoi(charContent);
+						int roomSize = 0;
+
+						// 2. 해당하는 번호의 방을 방 리스트에서 꺼내온다.
+						CGameRoom* room = GetInstance()->m_RoomList[number];
+						CClient* client = GetInstance()->m_ClientList[socket];
+
+						// 3. 해당하는 클라이언트를 퇴장시킨다.
+						roomSize = room->OnExit(client);
+						client->OnExitRoom();
+
+						// 4. 만약 방에 사람이 없다면 방을 폭파시키고 case 블록을 빠져나간다.
+						if (roomSize == 0) {
+							GetInstance()->m_RoomList.erase(number);
+							delete room;
+							break;
+						}
+
+						// 5. 해당 방 안에 있는 유저 정보를 보내주기 위해 iterator를 셋팅한다.
+						list<CClient*>::iterator iter;
+						list<CClient*> list = room->GetUserList();
+
+						// 6. 결과와 그 값을 저장할 변수를 선언한다.
+						// result의 경우 strcat으로 이어붙이기 위해 초기값을 공백으로 초기화해준다.
+						char result[500] = "";
+						int resultSize = 0;
+
+						// 7. 유저 정보를 구분자 '/'로 묶는다.
+						// 형식은 "이름/돈/이름/돈....." 이다.
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							char temp[50];
+							resultSize += sprintf(temp, "%s/%d/",
+								(*iter)->getID().c_str(), (*iter)->getMoney());
+
+							strcat(result, temp);
+						}
+
+						// 8. 마지막 구분자를 제거하기 위해 resultSize를 1 줄여준다.
+						resultSize--;
+
+						// 9. 방 안에 있는 모든 클라이언트에 정보를 전송한다.
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							GetInstance()->sendRequest((*iter)->getSocket(), result, 
+								PACKET_TYPE_ROOM_USER_RES, resultSize);
+						}
+					}
+					break;
+
+					// ROOM_CHAT_REQ는 클라이언트가 보낸 채팅 메세지이다.
+					case PACKET_TYPE_ROOM_CHAT_REQ:
+					{
+						// 1. 클라이언트가 현재 있는 방을 알아낸다.
+						CGameRoom* room = GetInstance()->m_RoomList
+							[GetInstance()->m_ClientList[socket]->getRoom()];
+
+						// 2. 해당 방 안에 있는 유저들에게 보내주기 위해 iterator를 셋팅한다.
+						list<CClient*>::iterator iter;
+						list<CClient*> list = room->GetUserList();
+
+						// 3. 방 안에 있는 모든 클라이언트에 메세지를 전송한다.
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							GetInstance()->sendRequest((*iter)->getSocket(), charContent,
+								PACKET_TYPE_ROOM_CHAT_RES, size);
+						}
+					}
+						break;
+
+					// ROOM_START_REQ는 클라이언트의 게임 시작 요청이다.
+					case PACKET_TYPE_ROOM_START_REQ:
+					{
+						// 1. 방 번호가 패킷으로 오므로 방을 얻는다.
+						int number = atoi(charContent);
+						CGameRoom* room = GetInstance()->m_RoomList[number];
+
+						// 2. 방의 상태를 게임 시작으로 바꾼다.
+						room->SetRoomState(GAME_STATE_START);
+
+						// 2. 해당 방 안에 있는 유저들에게 알려주기 위해 iterator를 셋팅한다.
+						list<CClient*>::iterator iter;
+						list<CClient*> list = room->GetUserList();
+
+						// 3. 방 안에 있는 모든 클라이언트에 메세지를 전송한다.
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							GetInstance()->sendRequest((*iter)->getSocket(), charContent,
+								PACKET_TYPE_ROOM_START_RES, size);
+						}
+					}
+						break;
 					
 					default:
 						break;
@@ -456,25 +558,7 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 				WSARecv(socket, &(newIoInfo->wsaBuf), 1, NULL, &flags, &(newIoInfo->overlapped), NULL);
 			}
 			// 쓰기 완료 시
-			else
-			{
-				// multiSendCount는 해당하는 횟수만큼 WSASend가 이루어지는 것을 의미한다.
-				// 해당 변수에 접근할 때 race condition이 발생할 수 있으므로
-				// 임계 영역을 설정해 준다.
-
-				EnterCriticalSection(&ioInfo->critical_section);
-
-				// multiSendCount가 0이 되면 다 보냈다는 뜻이므로 모든 자원을 해제해 준다.
-				if (--(ioInfo->multiSendCount) == 0) {
-					LeaveCriticalSection(&ioInfo->critical_section);
-					DeleteCriticalSection(&ioInfo->critical_section);
-					free(ioInfo);
-				}
-				// 아직도 보내야 하면 일단 임계영역부터 탈출시켜 준다.
-				else 
-					LeaveCriticalSection(&ioInfo->critical_section);
-
-			}
+			else free(ioInfo);
 		}
 		// 리턴값이 0인 경우 (뭔가 에러처리를 해야 하는 결과를 통지받은 경우)
 		else
@@ -493,6 +577,43 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 		}
 	}
 	return 0;
+}
+
+void CIOCPServer::RefreshRoomInfo(int num)
+{
+	// 이 함수는 서버에서 다이렉트로 특정 방의 클라이언트들에게
+	// 방 정보를 담은 패킷을 보내 새로고침해 주는 함수이다.
+	CGameRoom* room = this->m_RoomList[num];
+
+	// 해당 방 안에 있는 유저 정보를 보내주기 위해 iterator를 셋팅한다.
+	list<CClient*>::iterator iter;
+	list<CClient*> list = room->GetUserList();
+
+	// 결과와 그 값을 저장할 변수를 선언한다.
+	// result의 경우 strcat으로 이어붙이기 위해 초기값을 공백으로 초기화해준다.
+	char result[500] = "";
+	int resultSize = 0;
+	
+	// 유저 정보를 구분자 '/'로 묶는다.
+	// 형식은 "이름/돈/이름/돈....." 이다.
+	for (iter = list.begin(); iter != list.end(); iter++)
+	{
+		char temp[50];
+		resultSize += sprintf(temp, "%s/%d/",
+			(*iter)->getID().c_str(), (*iter)->getMoney());
+
+		strcat(result, temp);
+	}
+
+	// 마지막 구분자를 제거하기 위해 resultSize를 1 줄여준다.
+	resultSize--;
+
+	// 방 안에 있는 모든 클라이언트에 정보를 전송한다.
+	for (iter = list.begin(); iter != list.end(); iter++)
+	{
+		GetInstance()->sendRequest((*iter)->getSocket(), result,
+			PACKET_TYPE_ROOM_USER_RES, resultSize);
+	}
 }
 
 void CIOCPServer::sendRequest(SOCKET socket, char* data, unsigned short type, unsigned short size)
@@ -556,37 +677,45 @@ void CIOCPServer::initWSASend(LPPER_IO_DATA * ioInfo, const char* message, int m
 	(*ioInfo)->wsaBuf.len = msgLength;
 	(*ioInfo)->wsaBuf.buf = (*ioInfo)->buffer;
 	(*ioInfo)->readWriteFlag = WRITE;
-	(*ioInfo)->multiSendCount = 1;
-	InitializeCriticalSection(&(*ioInfo)->critical_section);
-}
-
-void CIOCPServer::initWSASend(LPPER_IO_DATA* ioInfo, const char* message, int msgLength, int multiSendCount)
-{
-	*ioInfo = (LPPER_IO_DATA)malloc(sizeof(PER_IO_DATA));
-	memset(&((*ioInfo)->overlapped), 0, sizeof(OVERLAPPED));
-	memset(&(*ioInfo)->buffer, 0, sizeof((*ioInfo)->buffer));
-	memcpy((*ioInfo)->buffer, message, msgLength);
-	(*ioInfo)->wsaBuf.len = msgLength;
-	(*ioInfo)->wsaBuf.buf = (*ioInfo)->buffer;
-	(*ioInfo)->readWriteFlag = WRITE;
-
-	// multiSendCount와 Critical_section은 한 클라이언트가 여러 번 WSASend를 할 때 제대로 사용된다.
-	(*ioInfo)->multiSendCount = multiSendCount;
-	InitializeCriticalSection(&(*ioInfo)->critical_section);
 }
 
 void CIOCPServer::closeClient(LPPER_HANDLE_DATA* handleInfo, LPPER_IO_DATA* ioInfo)
 {
+	int roomNumber = -1;
+	// 클라이언트가 접속 종료하기 전 임계 영역에서 처리를 한다.
 	EnterCriticalSection(&GetInstance()->m_CS);
-	GetInstance()->m_ClientList.erase((*handleInfo)->hClientSocket);
+
+	CClient* client = this->m_ClientList[(*handleInfo)->hClientSocket];
+	roomNumber = client->getRoom();
+	// 클라이언트가 방에 있었을 경우 퇴장 및 종료 처리를 해 준다.
+	if (client->getRoom() != -1) {
+		CGameRoom* room = this->m_RoomList[roomNumber];
+		room->OnExit(client);
+
+		// 만약 방에 사람이 없다면 방을 폭파시킨다.
+		if (room->GetUserNumber() == 0) {
+			GetInstance()->m_RoomList.erase(roomNumber);
+			delete room;
+			roomNumber = -1;
+		}
+	}
+	// 클라이언트 접속자 리스트에서도 해당 클라이언트를 빼 준다.
+	this->m_ClientList.erase(client->getSocket());
+
 	LeaveCriticalSection(&GetInstance()->m_CS);
+
+	// 마지막으로 클라이언트를 해제하며
+	delete client;
+	
+	// 방이 남아있는 경우 방에 있는 사람들에게 통지한다.
+	if (roomNumber != -1)
+		this->RefreshRoomInfo(roomNumber);
+
+	// 그리고 서버단에 남아있는 소켓과 그외 찌꺼기들을 마저 정리하고 끝낸다.
 	closesocket((*handleInfo)->hClientSocket);
 	printf("Client Disconnected :: %s/%d\n", inet_ntoa((*handleInfo)->clientAddress.sin_addr),
 		(*handleInfo)->clientAddress.sin_port);
 	delete (*handleInfo)->packetQueue;
 	free(*handleInfo);
-
-	// ioInfo의 경우 다중 송신일 때 아직 다른 클라이언트에 갈 분량이 남아있다면 남겨둔다.
-	if ((*ioInfo)->multiSendCount != 0) return;
 	free(*ioInfo);
 }

@@ -41,8 +41,6 @@ typedef struct
 	WSABUF			wsaBuf;						// OVERLAPPED IO 이용에 쓰이는 버퍼 설정용 구조체
 	char			buffer[MAX_BUFFER_SIZE];	// OVERLAPPED IO에 사용되는 다이렉트 버퍼
 	int				readWriteFlag;				// 현재 IO 작업이 무엇인지 표현하는 변수
-	int				multiSendCount;				// 다수의 사용자에게 WSASend시 활용되는 카운트
-	CRITICAL_SECTION critical_section;			// 멀티스레드 동기화를 위한 핸들
 }PER_IO_DATA, * LPPER_IO_DATA;
 
 // CIOCPServer 클래스
@@ -56,8 +54,7 @@ public:
 	// 기타 public 멤버 함수
 	bool Init(const int PORT);	// 서버 초기화 함수
 	
-	void DirectSendRequest();	// 서버 내 다른 모듈에서 쓰기 요청을 할 때 호출되는 함수
-
+	void RefreshRoomInfo(int num);
 	void Release();				// 싱글톤 객체를 메모리에서 해제할 때 호출되는 함수
 
 private:
@@ -88,6 +85,5 @@ private:
 
 	void initWSARecv(LPPER_IO_DATA * ioInfo);
 	void initWSASend(LPPER_IO_DATA * ioInfo, const char * message, int msgLength);
-	void initWSASend(LPPER_IO_DATA * ioInfo, const char * message, int msgLength, int multiSendCount);
 	void closeClient(LPPER_HANDLE_DATA * handleInfo, LPPER_IO_DATA * ioInfo);
 };

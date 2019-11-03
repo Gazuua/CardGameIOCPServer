@@ -23,7 +23,11 @@ using namespace std;
 #define PACKET_TYPE_ROOM_INFO_REQ 12	// 방에 있는 클라이언트가 방의 정보를 요청하는 패킷
 #define PACKET_TYPE_ROOM_INFO_RES 13	// 방에 있는 클라이언트에게 방의 정보를 주는 응답
 #define PACKET_TYPE_ROOM_USER_RES 14	// 방에 있는 클라이언트에게 해당 방의 유저 목록을 주는 응답
-#define PACKET_TYPE_EXIT_ROOM_REQ 15	// 방에서 나가는 클라이언트가 서버에 알리는 패킷
+#define PACKET_TYPE_EXIT_ROOM_REQ 15	// 방에서 나가는 클라이언트가 서버에 요청하는 패킷
+#define PACKET_TYPE_ROOM_CHAT_REQ 16	// 방에서 채팅 메세지를 서버에 보낸 클라이언트의 요청 패킷
+#define PACKET_TYPE_ROOM_CHAT_RES 17	// 채팅 메세지에 대한 서버의 응답 패킷
+#define PACKET_TYPE_ROOM_START_REQ 18	// 클라이언트의 게임 시작 요청
+#define PACKET_TYPE_ROOM_START_RES 19	// 클라이언트에 게임 시작 알림
 
 // CPacket :: 패킷을 클래스화시킨 클래스이다.
 class CPacket

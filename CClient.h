@@ -20,6 +20,7 @@ public:
 	int getLose();
 	int getMoney();
 	int getRoom();
+	SOCKET getSocket();
 
 	void setID(string id);
 	void setWin(int win);

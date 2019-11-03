@@ -9,3 +9,8 @@ int CGameLogics::GetGameState()
 {
 	return this->m_GameState;
 }
+
+void CGameLogics::SetGameState(int state)
+{
+	this->m_GameState = state;
+}

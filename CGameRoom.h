@@ -24,6 +24,7 @@ public:
 	list<CClient*> GetUserList();
 	
 	void SetName(string name);
+	void SetRoomState(int state);
 
 private:
 	string			m_Name;

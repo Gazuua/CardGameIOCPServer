@@ -53,6 +53,11 @@ int CClient::getRoom()
 	return this->m_nRoom;
 }
 
+SOCKET CClient::getSocket()
+{
+	return this->m_Socket;
+}
+
 void CClient::setID(string id)
 {
 	this->m_ID.assign(id);

@@ -33,7 +33,7 @@ int CGameRoom::OnEnter(CClient* client)
 
 int CGameRoom::OnExit(CClient* client)
 {
-	int size = 0;
+	int size = -1;
 
 	EnterCriticalSection(&m_CS);
 	this->m_ClientList.remove(client);
@@ -65,6 +65,11 @@ string CGameRoom::GetName()
 void CGameRoom::SetName(string name)
 {
 	this->m_Name.assign(name);
+}
+
+void CGameRoom::SetRoomState(int state)
+{
+	this->m_GameState->SetGameState(state);
 }
 
 
