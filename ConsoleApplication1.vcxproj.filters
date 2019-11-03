@@ -33,6 +33,15 @@
     <ClCompile Include="CDataBaseManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="CGameRoom.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="CClient.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="CGameLogics.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CIOCPServer.h">
@@ -48,6 +57,15 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="CDataBaseManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CGameRoom.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CClient.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CGameLogics.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

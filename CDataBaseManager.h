@@ -5,6 +5,8 @@
 #include<sql.h>
 #include<sqlext.h>
 
+#include"CClient.h"
+
 using namespace std;
 
 #pragma warning(disable:4996)
@@ -18,8 +20,9 @@ public:
 	bool DBConnect();
 	void DBDisconnect();
 
-	bool LoginRequest(string id, string pw);
+	bool LoginRequest(string id, string pw, CClient* client);
 	bool RegisterRequest(string id, string pw);
+	bool UserInfoRequest(string id, CClient* client);
 
 	void Release();
 
