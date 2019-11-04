@@ -31,6 +31,9 @@ bool CIOCPServer::Init(const int PORT)
 	if (WSAStartup(MAKEWORD(2, 2), &m_WsaData) != 0)
 		return false;
 
+	// CRITICAL_SECTION 핸들은 미리 할당
+	InitializeCriticalSection(&GetInstance()->m_CS);
+
 	// IO Completion Port 할당
 	m_hCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 
@@ -48,7 +51,7 @@ bool CIOCPServer::Init(const int PORT)
 	m_ServerAddress.sin_port = htons(55248);
 
 	// bind 및 listen
-	bind(m_hServerSocket, (SOCKADDR*)&m_ServerAddress, sizeof(m_ServerAddress));
+	::bind(m_hServerSocket, (SOCKADDR*)&m_ServerAddress, sizeof(m_ServerAddress));
 	listen(m_hServerSocket, SOMAXCONN);
 
 	// listen 준비가 끝나고 accept를 위해 accept thread를 하나 시작
@@ -63,7 +66,6 @@ bool CIOCPServer::Init(const int PORT)
 	GetInstance()->m_ClientList.clear();
 	GetInstance()->m_RoomList.clear();
 	GetInstance()->m_nLastRoomIndex = 0;
-	InitializeCriticalSection(&GetInstance()->m_CS);
 
 	puts("============= IOCP 서버 초기 설정 완료!=============");
 	printf("서버 주소 -> %d.%d.%d.%d/%d\n", ipAddr[0], ipAddr[1], ipAddr[2], ipAddr[3], PORT);
@@ -532,7 +534,7 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 						CGameRoom* room = GetInstance()->m_RoomList[number];
 
 						// 2. 방의 상태를 게임 시작으로 바꾼다.
-						room->SetRoomState(GAME_STATE_START);
+						room->OnStart();
 
 						// 2. 해당 방 안에 있는 유저들에게 알려주기 위해 iterator를 셋팅한다.
 						list<CClient*>::iterator iter;
@@ -546,7 +548,217 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 						}
 					}
 						break;
+
+					// ENTER_GAME_REQ는 게임에 들어가는 클라이언트가 서버에 요청하는 패킷이다.
+					case PACKET_TYPE_ENTER_GAME_REQ:
+					{
+						// 1. 클라이언트가 현재 있는 방을 알아낸다.
+						int num = atoi(charContent);
+						char result[50];
+						int resultSize = 0;
+
+						// 2. 모든 공통정보를 뿌린다.
+						GetInstance()->RefreshGameRoomInfo(num);
+
+						// 3. 카드 정보를 뿌린다.
+						// 카드 정보는 game프래그먼트 최초 진입시에 한 번만 주므로..
+						CClient* client = GetInstance()->m_ClientList[socket];
+						CCard* one = client->getCardOne();
+						CCard* two = client->getCardTwo();
+
+						// 4. 보낼 때는 "숫자/광여부/숫자/광여부" 로 보낸다.
+						resultSize = sprintf(result, "%d/%d/%d/%d", one->GetNumber(), one->GetSpecial(),
+							two->GetNumber(), two->GetSpecial());
+
+						// 5. 카드 정보를 요청자에게 뿌린다.
+						GetInstance()->sendRequest(socket, result, PACKET_TYPE_GAME_CARD_RES, resultSize);
+					}
+						break;
 					
+					// GAME_BETTING_REQ는 클라이언트가 시도한 베팅 요청이다.
+					case PACKET_TYPE_GAME_BETTING_REQ:
+					{
+						// 1. 클라이언트가 보낸 베팅 종류를 저장한다.
+						int bet = atoi(charContent);
+
+						// 2. 클라이언트와 클라이언트가 현재 있는 방을 알아낸다.
+						CClient* client = GetInstance()->m_ClientList[socket];
+						CGameRoom* room = GetInstance()->m_RoomList
+							[client->getRoom()];
+
+						// 3. 베팅 종류에 따라 클라이언트와 방의 상태를 조정한다.
+						switch (bet)
+						{
+							// 죽었으면 죽었다고 설정해준다.
+						case GAME_BETTING_DIE:
+							client->setDie(true);
+							break;
+							// 콜이면 기준판돈만큼 클라이언트의 베팅머니를 올린다.
+						case GAME_BETTING_CALL:
+							client->setBetMoney(room->GetMoney());
+							room->AddMoneySum(client->getBetMoney());
+							break;
+							// 더블이면 기준판돈의 2배로 베팅머니를 올린다.
+						case GAME_BETTING_DOUBLE:
+						{
+							room->SetMoney(room->GetMoney() * 2);
+							client->setBetMoney(room->GetMoney());
+							room->AddMoneySum(client->getBetMoney());
+
+							// 누군가 더블을 걸었으니 더 베팅하라는 사실을 모두에게 알린다.
+							list<CClient*>::iterator iter;
+							list<CClient*> list = room->GetUserList();
+							char result[10] = "abc";
+							int resultSize = sizeof("abc");
+							for (iter = list.begin(); iter != list.end(); iter++)
+								GetInstance()->sendRequest((*iter)->getSocket(), result, 
+									PACKET_TYPE_GAME_BETTING_DOUBLE_RES, resultSize);
+						}
+							break;
+						}
+
+						// 4. 게임이 끝나는 조건 :: 1명 빼고 다 죽거나
+						// 살아있는 모두가 기준판돈만큼의 돈을 베팅했는지 확인한다.
+						list<CClient*>::iterator iter;
+						list<CClient*> list = room->GetUserList();
+						int alive = 0;
+						int called = 0;
+
+						for (iter = list.begin(); iter != list.end(); iter++)
+						{
+							// 살아있는 놈 카운트 +
+							if (!(*iter)->isDead()) 
+								alive++;
+
+							// 기준금액 이상 베팅한 사람 +
+							if ((*iter)->getBetMoney() >= room->GetMoney()) 
+								called++;
+						}
+
+						char result[5000];
+						memset(result, 0, sizeof(result));
+						int resultSize = 0;
+
+						// 살아있는 사람이 한 명이다?
+						if (alive == 1) {
+							// 살아있는 사람(승자)에게 돈을 주고 게임 종료 패킷을 날린다.
+							// 게임 종료 패킷에는 각자의 이름/족보코드/다이 여부가 가게 된다.
+							for (iter = list.begin(); iter != list.end(); iter++)
+							{
+								char temp[50];
+
+								if (!(*iter)->isDead()) {
+									CDataBaseManager::GetInstance()->UserWinRequest(
+										*iter, room->GetMoneySum() - (*iter)->getBetMoney()
+									);
+								}
+								else {
+									CDataBaseManager::GetInstance()->UserLoseRequest(
+										*iter, (*iter)->getBetMoney()
+									);
+								}
+
+								resultSize += sprintf(temp, "%s/%d/%d/",
+									(*iter)->getID().c_str(),
+									(*iter)->getJokboCode(),
+									(*iter)->isDead());
+
+								strcat(result, temp);
+							}
+
+							// 마지막 구분자를 제외하기 위해 인덱스를 1 뺀다.
+							resultSize--;
+
+							for (iter = list.begin(); iter != list.end(); iter++)
+							{
+								// 클라이언트 안에 게임용 멤버들을 초기화 및 해제한다.
+								(*iter)->OnEndGame();
+
+								// 모두에게 게임이 끝났음을 알린다.
+								GetInstance()->sendRequest((*iter)->getSocket(), result,
+									PACKET_TYPE_GAME_SET_RES, resultSize);
+							}
+							// 방에 카드 리스트도 날리고
+							room->ReleaseCardSet();
+							room->SetRoomState(GAME_STATE_READY);
+							// case 블럭을 빠져나간다.
+							break;
+						}
+
+						int maxJokbo = 0;
+						bool equal = false;
+
+						// 살아있는 모든 사람이 기준금액 이상 콜베팅을 했다?
+						if (called == alive) {
+							// 족보를 비교하고 승패를 결정한 후
+							// 승자에게 돈을 주고 게임 종료 패킷을 날린다.
+							// 무승부면 그냥 끝내면 된다.
+							for (iter = list.begin(); iter != list.end(); iter++)
+							{
+								char temp[50];
+								
+								if(maxJokbo == 0) maxJokbo = (*iter)->getJokboCode();
+								else {
+									if (maxJokbo < (*iter)->getJokboCode())
+										maxJokbo = (*iter)->getJokboCode();
+									else if (maxJokbo == (*iter)->getJokboCode())
+										equal = true;
+								}
+
+								resultSize += sprintf(temp, "%s/%d/%d/",
+									(*iter)->getID().c_str(),
+									(*iter)->getJokboCode(),
+									(*iter)->isDead());
+
+								i++;
+								strcat(result, temp);
+							}
+
+							// 마지막 구분자를 제외하기 위해 인덱스를 1 뺀다.
+							resultSize--;
+
+							i = 0;
+							// 무승부면 아무것도 안 해줘도 되고
+							// 무승부가 아니면 DB처리를 한다.
+							if (!equal) {
+								for (iter = list.begin(); iter != list.end(); iter++)
+								{
+									if (maxJokbo == (*iter)->getJokboCode()) {
+										CDataBaseManager::GetInstance()->UserWinRequest(
+											*iter, room->GetMoneySum() - (*iter)->getBetMoney()
+										);
+									}
+									else {
+										CDataBaseManager::GetInstance()->UserLoseRequest(
+											*iter, (*iter)->getBetMoney()
+										);
+									}
+								}
+							}
+
+							// 마지막으로
+							for (iter = list.begin(); iter != list.end(); iter++)
+							{
+								// 클라이언트 안에 게임용 멤버들을 초기화 및 해제한다.
+								(*iter)->OnEndGame();
+
+								// 모두에게 게임이 끝났음을 알린다.
+								GetInstance()->sendRequest((*iter)->getSocket(), result,
+									PACKET_TYPE_GAME_SET_RES, resultSize);
+							}
+
+							// 방에 카드 리스트도 날리고
+							room->ReleaseCardSet();
+							room->SetRoomState(GAME_STATE_READY);
+							// 그리고 case 블럭을 빠져나간다.
+							break;
+						}
+
+						// 5. 여기까지 왔으면 게임 끝난 것이 아니므로, 게임방 상태를 리프레쉬한다.
+						GetInstance()->RefreshGameRoomInfo(client->getRoom());
+					}
+						break;
+
 					default:
 						break;
 					}
@@ -557,7 +769,7 @@ unsigned int __stdcall CIOCPServer::workerProcedure(void* hCompletionPort)
 				GetInstance()->initWSARecv(&newIoInfo);
 				WSARecv(socket, &(newIoInfo->wsaBuf), 1, NULL, &flags, &(newIoInfo->overlapped), NULL);
 			}
-			// 쓰기 완료 시
+			// 쓰기 완료 시 
 			else free(ioInfo);
 		}
 		// 리턴값이 0인 경우 (뭔가 에러처리를 해야 하는 결과를 통지받은 경우)
@@ -600,7 +812,7 @@ void CIOCPServer::RefreshRoomInfo(int num)
 	{
 		char temp[50];
 		resultSize += sprintf(temp, "%s/%d/",
-			(*iter)->getID().c_str(), (*iter)->getMoney());
+			(*iter)->getID().c_str(), (*iter)->getBetMoney());
 
 		strcat(result, temp);
 	}
@@ -613,6 +825,60 @@ void CIOCPServer::RefreshRoomInfo(int num)
 	{
 		GetInstance()->sendRequest((*iter)->getSocket(), result,
 			PACKET_TYPE_ROOM_USER_RES, resultSize);
+	}
+}
+
+void CIOCPServer::RefreshGameRoomInfo(int num)
+{
+	// 이 함수는 서버에서 다이렉트로 게임 중인 특정 방의 클라이언트들에게
+	// 방 정보를 담은 패킷을 보내 새로고침해 주는 함수이다.
+	// 보내야 할 공통 정보는 다음과 같다.
+	
+	// 1. 유저 정보(이름/베팅한 돈)
+	// 2. 판돈 정보(기준 판돈/전체 판돈)
+	CGameRoom* room = this->m_RoomList[num];
+
+	// 해당 방 안에 있는 유저 정보를 보내주기 위해 iterator를 셋팅한다.
+	list<CClient*>::iterator iter;
+	list<CClient*> list = room->GetUserList();
+
+	// 결과와 그 값을 저장할 변수를 선언한다.
+	// result의 경우 strcat으로 이어붙이기 위해 초기값을 공백으로 초기화해준다.
+	char result[500] = "";
+	int resultSize = 0;
+
+	// 유저 정보를 구분자 '/'로 묶는다.
+	// 형식은 "이름/베팅한 돈/이름/베팅한 돈....." 이다.
+	for (iter = list.begin(); iter != list.end(); iter++)
+	{
+		char temp[50];
+		resultSize += sprintf(temp, "%s/%d/",
+			(*iter)->getID().c_str(), (*iter)->getBetMoney());
+
+		strcat(result, temp);
+	}
+
+	// 마지막 구분자를 제거하기 위해 resultSize를 1 줄여준다.
+	resultSize--;
+
+	// 방 안에 있는 모든 클라이언트에 정보를 전송한다.
+	for (iter = list.begin(); iter != list.end(); iter++)
+	{
+		GetInstance()->sendRequest((*iter)->getSocket(), result,
+			PACKET_TYPE_GAME_USER_RES, resultSize);
+	}
+
+	// 결과 변수를 초기화한다.
+	memset(result, 0, sizeof(result));
+	resultSize = 0;
+
+	resultSize = sprintf(result, "%d/%d", room->GetMoney(), room->GetMoneySum());
+
+	// 방 안에 있는 모든 클라이언트에 정보를 전송한다.
+	for (iter = list.begin(); iter != list.end(); iter++)
+	{
+		GetInstance()->sendRequest((*iter)->getSocket(), result,
+			PACKET_TYPE_GAME_INFO_RES, resultSize);
 	}
 }
 
@@ -682,6 +948,7 @@ void CIOCPServer::initWSASend(LPPER_IO_DATA * ioInfo, const char* message, int m
 void CIOCPServer::closeClient(LPPER_HANDLE_DATA* handleInfo, LPPER_IO_DATA* ioInfo)
 {
 	int roomNumber = -1;
+	int roomState = 0;
 	// 클라이언트가 접속 종료하기 전 임계 영역에서 처리를 한다.
 	EnterCriticalSection(&GetInstance()->m_CS);
 
@@ -691,12 +958,14 @@ void CIOCPServer::closeClient(LPPER_HANDLE_DATA* handleInfo, LPPER_IO_DATA* ioIn
 	if (client->getRoom() != -1) {
 		CGameRoom* room = this->m_RoomList[roomNumber];
 		room->OnExit(client);
+		roomState = room->GetRoomState();
 
 		// 만약 방에 사람이 없다면 방을 폭파시킨다.
 		if (room->GetUserNumber() == 0) {
 			GetInstance()->m_RoomList.erase(roomNumber);
 			delete room;
 			roomNumber = -1;
+			roomState = 0;
 		}
 	}
 	// 클라이언트 접속자 리스트에서도 해당 클라이언트를 빼 준다.
@@ -709,7 +978,12 @@ void CIOCPServer::closeClient(LPPER_HANDLE_DATA* handleInfo, LPPER_IO_DATA* ioIn
 	
 	// 방이 남아있는 경우 방에 있는 사람들에게 통지한다.
 	if (roomNumber != -1)
-		this->RefreshRoomInfo(roomNumber);
+	{
+		if (roomState == 0)
+			this->RefreshRoomInfo(roomNumber);
+		else
+			this->RefreshGameRoomInfo(roomNumber);
+	}
 
 	// 그리고 서버단에 남아있는 소켓과 그외 찌꺼기들을 마저 정리하고 끝낸다.
 	closesocket((*handleInfo)->hClientSocket);

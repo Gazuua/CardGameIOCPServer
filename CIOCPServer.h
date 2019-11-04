@@ -14,7 +14,6 @@
 #include"CPacket.h"
 #include"CClient.h"
 #include"CGameRoom.h"
-#include"CGameLogics.h"
 #include"CUtil.h"
 
 #pragma warning(disable:4996)
@@ -55,6 +54,7 @@ public:
 	bool Init(const int PORT);	// 서버 초기화 함수
 	
 	void RefreshRoomInfo(int num);
+	void RefreshGameRoomInfo(int num);
 	void Release();				// 싱글톤 객체를 메모리에서 해제할 때 호출되는 함수
 
 private:

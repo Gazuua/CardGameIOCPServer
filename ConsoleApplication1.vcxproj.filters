@@ -39,7 +39,7 @@
     <ClCompile Include="CClient.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="CGameLogics.cpp">
+    <ClCompile Include="CCard.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -65,7 +65,7 @@
     <ClInclude Include="CClient.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="CGameLogics.h">
+    <ClInclude Include="CCard.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

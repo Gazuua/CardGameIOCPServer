@@ -167,3 +167,57 @@ bool CDataBaseManager::UserInfoRequest(string id, CClient* client)
 
 	return ret;
 }
+
+bool CDataBaseManager::UserWinRequest(CClient* client, int money)
+{
+	SQLCHAR query[256];
+	SQLHSTMT hStmt;
+	SQLINTEGER row = 0;
+	bool ret = false;
+
+	if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS)
+		return ret;
+
+	sprintf((char*)query, "UPDATE CLIENT SET USERWIN = USERWIN+1, USERMONEY = USERMONEY+%d WHERE USERID = '%s'" 
+		,money, client->getID().c_str());
+
+	// cout << "쿼리 실행 :: " << stringQuery << endl;
+	SQLExecDirect(hStmt, query, SQL_NTS);
+
+	// 아래 코드는 SQL문 실행으로 영향을 받은 행의 갯수를 반환한다.
+	// 1개 행이 삽입되었다면 정상적으로 회원가입이 된 것이다.
+	SQLRowCount(hStmt, &row);
+	if (row == 1) ret = true;
+
+	SQLCloseCursor(hStmt);
+	SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
+	return ret;
+}
+
+bool CDataBaseManager::UserLoseRequest(CClient* client, int money)
+{
+	SQLCHAR query[256];
+	SQLHSTMT hStmt;
+	SQLINTEGER row = 0;
+	bool ret = false;
+
+	if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS)
+		return ret;
+
+	sprintf((char*)query, "UPDATE CLIENT SET USERLOSE = USERLOSE+1, USERMONEY = USERMONEY-%d WHERE USERID = '%s'"
+		, money, client->getID().c_str());
+
+	// cout << "쿼리 실행 :: " << stringQuery << endl;
+	SQLExecDirect(hStmt, query, SQL_NTS);
+
+	// 아래 코드는 SQL문 실행으로 영향을 받은 행의 갯수를 반환한다.
+	// 1개 행이 삽입되었다면 정상적으로 회원가입이 된 것이다.
+	SQLRowCount(hStmt, &row);
+	if (row == 1) ret = true;
+
+	SQLCloseCursor(hStmt);
+	SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
+	return ret;
+}

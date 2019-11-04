@@ -23,6 +23,8 @@ public:
 	bool LoginRequest(string id, string pw, CClient* client);
 	bool RegisterRequest(string id, string pw);
 	bool UserInfoRequest(string id, CClient* client);
+	bool UserWinRequest(CClient* client, int money);
+	bool UserLoseRequest(CClient* client, int money);
 
 	void Release();
 

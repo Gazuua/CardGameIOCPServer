@@ -155,9 +155,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CCard.cpp" />
     <ClCompile Include="CClient.cpp" />
     <ClCompile Include="CDataBaseManager.cpp" />
-    <ClCompile Include="CGameLogics.cpp" />
     <ClCompile Include="CGameRoom.cpp" />
     <ClCompile Include="CIOCPServer.cpp" />
     <ClCompile Include="ConsoleApplication1.cpp" />
@@ -166,9 +166,9 @@
     <ClCompile Include="CUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CCard.h" />
     <ClInclude Include="CClient.h" />
     <ClInclude Include="CDataBaseManager.h" />
-    <ClInclude Include="CGameLogics.h" />
     <ClInclude Include="CGameRoom.h" />
     <ClInclude Include="CIOCPServer.h" />
     <ClInclude Include="CPacket.h" />

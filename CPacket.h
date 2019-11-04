@@ -28,6 +28,14 @@ using namespace std;
 #define PACKET_TYPE_ROOM_CHAT_RES 17	// 채팅 메세지에 대한 서버의 응답 패킷
 #define PACKET_TYPE_ROOM_START_REQ 18	// 클라이언트의 게임 시작 요청
 #define PACKET_TYPE_ROOM_START_RES 19	// 클라이언트에 게임 시작 알림
+#define PACKET_TYPE_ENTER_GAME_REQ 20	// 클라이언트가 게임방에 들어왔음을 알려주는 패킷
+#define PACKET_TYPE_GAME_USER_RES 21	// 게임방에서 유저 리스트를 응답하는 패킷
+#define PACKET_TYPE_GAME_INFO_RES 22	// 판돈과 기준 베팅금액을 응답하는 패킷
+#define PACKET_TYPE_GAME_CARD_RES 23	// 단일 클라이언트에게 자신의 카드가 무엇인지 알려주는 패킷
+#define PACKET_TYPE_GAME_BETTING_REQ 24 // 단일 클라이언트의 베팅 요청
+#define PACKET_TYPE_GAME_BETTING_RES 25 // 단일 클라이언트의 콜 베팅에 대한 응답
+#define PACKET_TYPE_GAME_BETTING_DOUBLE_RES 26 // 누군가 더블을 걸면 살아있는 클라이언트의 버튼을 활성화
+#define PACKET_TYPE_GAME_SET_RES 27		// 게임이 끝날 때 클라이언트에 알려주는 패킷
 
 // CPacket :: 패킷을 클래스화시킨 클래스이다.
 class CPacket
